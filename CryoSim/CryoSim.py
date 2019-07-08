@@ -10,6 +10,10 @@ import time
 import csv
 from SlicerDevelopmentToolboxUtils.mixins import ModuleWidgetMixin, ModuleLogicMixin
 
+
+#TODO: better define the urethra colision.
+
+
 # teste1
 SizeX = 6.0
 SizeY = 6.0
@@ -84,7 +88,7 @@ class CryoSimWidget(ScriptedLoadableModuleWidget):
     self.inputTumor1.showChildNodeTypes = False
     self.inputTumor1.setMRMLScene( slicer.mrmlScene )
     self.inputTumor1.setToolTip( "Pick the input to the algorithm." )
-    parametersFormLayout.addRow("Input Volume 2: ", self.inputTumor1)
+    parametersFormLayout.addRow("Taget Volume: ", self.inputTumor1)
 
     self.inputTumor2 = slicer.qMRMLNodeComboBox()
     self.inputTumor2.nodeTypes = ["vtkMRMLLabelMapVolumeNode"]
@@ -96,7 +100,7 @@ class CryoSimWidget(ScriptedLoadableModuleWidget):
     self.inputTumor2.showChildNodeTypes = False
     self.inputTumor2.setMRMLScene( slicer.mrmlScene )
     self.inputTumor2.setToolTip( "Pick the input to the algorithm." )
-    parametersFormLayout.addRow("Input Volume 3: ", self.inputTumor2)
+    parametersFormLayout.addRow("Segmented Urethra: ", self.inputTumor2)
 
 
     self.inputTumor3 = slicer.qMRMLNodeComboBox()
@@ -109,7 +113,11 @@ class CryoSimWidget(ScriptedLoadableModuleWidget):
     self.inputTumor3.showChildNodeTypes = False
     self.inputTumor3.setMRMLScene( slicer.mrmlScene )
     self.inputTumor3.setToolTip( "Pick the label input to the algorithm." )
-    parametersFormLayout.addRow("Input Label: ", self.inputTumor3)
+    parametersFormLayout.addRow("Obstacle #2: ", self.inputTumor3)
+
+    self.SegmentedUrethra = qt.QCheckBox()
+    self.SegmentedUrethra.setChecked(True)
+    parametersFormLayout.addRow("Segmented urethra:", self.SegmentedUrethra)
 
     #
     # threshold value
@@ -494,6 +502,8 @@ class Cryo2Probes(ScriptedLoadableModuleLogic):
     self.b = self.Spheres2.GetPointData()
     PixelImage2 = numpy.count_nonzero(self.b.GetArray(0))
 
+
+
     self.logicFilter.SetOperationToAnd()
     self.logicFilter.SetInputData(0, self.imData1) #check here.
     self.logicFilter.SetInputData(1, self.Spheres2)
@@ -505,7 +515,7 @@ class Cryo2Probes(ScriptedLoadableModuleLogic):
 
     self.b = self.imData1.GetPointData()
     PixelImage1 = numpy.count_nonzero(self.b.GetArray(0))
-    return [(2.0 * intersection) / (PixelImage1 + PixelImage2), (1.0*(intersection) / PixelImage1), PixelImage1]
+    return [(2.0 * intersection) / (PixelImage1 + PixelImage2), (1.0*(intersection) / PixelImage1), PixelImage2]# - PixelImage1]
 
   def optimizationCryo(self, N, Kd):
     self.DiceGain = Kd
@@ -517,8 +527,8 @@ class Cryo2Probes(ScriptedLoadableModuleLogic):
     x0 = [self.PositionIceBall1[0], self.PositionIceBall1[1], self.PositionIceBall1[2], self.PositionIceBall2[0], self.PositionIceBall2[1], self.PositionIceBall2[2]]
 
 
-    res = scipy.optimize.minimize(Fun, x0, method='Nelder-Mead', options={'fatol': 0.2, 'xatol': 0.7, 'maxiter': 1200, 'maxfev': 10900})
-
+    res = scipy.optimize.minimize(Fun, x0, method='Nelder-Mead', bounds=[(140, 200),(x0[1]-10, x0[1]+10),(x0[2]-10, x0[2]+10), (140, 200),(x0[4]-10, x0[4]+10),(x0[5]-10, x0[5]+10)],options={'fatol': 0.5, 'xatol': 0.7, 'maxiter': 1200, 'maxfev': 10900})#options={'ftol': 0.2, 'gtol': 0.007, 'maxiter': 1200, 'maxfev': 10900})
+    #res = scipy.optimize.minimize(Fun, x0, method='Nelder-Mead', options={'fatol': 0.1, 'xatol': 0.7, 'maxiter': 1200, 'maxfev': 10900})
 
     print(x0)
     print("==opt output===")
@@ -547,6 +557,10 @@ class Cryo2Probes(ScriptedLoadableModuleLogic):
     noiseGaussianX2 = numpy.random.normal(0.0, self.sdterr, 1000)
     noiseGaussianY2 = numpy.random.normal(0.0, self.sdterr, 1000)
     noiseGaussianZ2 = numpy.random.normal(0.0, self.sdterr/10.0, 1000)
+    #TODO
+
+    if X[0] <= 0 or X[3] <=0:
+      return [0, 0.2, 0, 0, 0]
     for i in range(0, NofInt - 1):
       self.sphere1.SetCenter(X[0] + noiseGaussianX[i], X[1] + noiseGaussianY[i], X[2] + noiseGaussianZ[i])
       self.sphere1.Update()
@@ -769,12 +783,24 @@ class Cryo2Probes(ScriptedLoadableModuleLogic):
 
     resultFile.write("Probe; N ; Kd ; Err ; PoS ; PTC ; DSC ; Optout\n")
 
-    self.sdterr = 4.0
+    self.sdterr = 0.2
     start_time = time.time()
     self.InitDataForPlanning(inputVolume2)
     self.GetCenterTumor(inputVolume2)
     self.output = outputLabel
 
+
+    print(self.Probability([151,123,25,146,99,25], 100))
+
+    self.sphere1.SetCenter(151,123,25)
+    self.sphere1.Update()
+    self.sphere2.SetCenter(146,99,25)
+    self.sphere2.Update()
+    print(self.ComputeDice2IceBall())
+
+
+    print("Pra valer")
+    return
     X = self.optimizationCryo(N, Kd)
     elapsed_time = time.time() - start_time
     print(elapsed_time)
@@ -786,28 +812,6 @@ class Cryo2Probes(ScriptedLoadableModuleLogic):
 
 
 
-    noiseGaussianX = numpy.random.normal(0.0, self.sdterr, 1000)
-    noiseGaussianY = numpy.random.normal(0.0, self.sdterr, 1000)
-    noiseGaussianZ = numpy.random.normal(0.0, self.sdterr/10.0, 1000)
-    noiseGaussianX2 = numpy.random.normal(0.0, self.sdterr, 1000)
-    noiseGaussianY2 = numpy.random.normal(0.0, self.sdterr, 1000)
-    noiseGaussianZ2 = numpy.random.normal(0.0, self.sdterr/10.0, 1000)
-    DICE_temp = self.ComputeDice2IceBall()
-    DICE_temp[1] = 0.0
-    count = 0
-    i=0
-    while (DICE_temp[1] < 0.97):
-      self.sphere1.SetCenter(X[0] + noiseGaussianX[i], X[1] + noiseGaussianY[i], X[2] + noiseGaussianZ[i])
-      self.sphere1.Update()
-      self.sphere2.SetCenter(X[3] + noiseGaussianX2[i], X[4] + noiseGaussianY2[i], X[5] + noiseGaussianZ2[i])
-      self.sphere2.Update()
-      DICE_temp = self.ComputeDice2IceBall()
-      count = count+1
-      i = i + 1
-      if i > 900:
-          DICE_temp[1] = 1.0
-
-    print(count)
 
     # Test copy from longquan Begin of affectedBallArea
 
@@ -893,7 +897,7 @@ class Cryo3Probes(ScriptedLoadableModuleLogic):
     self.b = self.imData1.GetPointData()
     PixelImage1 = numpy.count_nonzero(self.b.GetArray(0))
 
-    return [(2.0 * intersection) / (PixelImage1 + PixelImage2), (1.0*intersection / PixelImage1)]
+    return [(2.0 * intersection) / (PixelImage1 + PixelImage2), (1.0*intersection / PixelImage1), PixelImage2]# - PixelImage1]]
 
   def optimizationCryo(self, N, Kd):
     self.DiceGain = Kd
@@ -908,9 +912,9 @@ class Cryo3Probes(ScriptedLoadableModuleLogic):
          self.PositionIceBall3[0], self.PositionIceBall3[1], self.PositionIceBall3[2]]
 
 
-    #res = scipy.optimize.minimize(Fun, x0, method='Nelder-Mead', options={'fatol': 0.3, 'xatol': 1.0, 'maxiter': 1200, 'maxfev': 10900})
-    res = scipy.optimize.minimize(Fun, x0, method='Nelder-Mead',
-                                  options={'fatol': 0.1, 'xatol': 0.7, 'maxiter': 1000, 'maxfev': 19200})
+    res = scipy.optimize.minimize(Fun, x0, method='Nelder-Mead', options={'fatol': 0.7, 'xatol': 1.0, 'maxiter': 100, 'maxfev': 10900})
+    #res = scipy.optimize.minimize(Fun, x0, method='Nelder-Mead',
+    #                              options={'fatol': 0.1, 'xatol': 0.7, 'maxiter': 1000, 'maxfev': 19200})
 
     print("==opt output===")
     print(res.x)
@@ -940,6 +944,8 @@ class Cryo3Probes(ScriptedLoadableModuleLogic):
     noiseGaussianX3 = numpy.random.normal(0.0, self.sdterr, 1000)
     noiseGaussianY3 = numpy.random.normal(0.0, self.sdterr, 1000)
     noiseGaussianZ3 = numpy.random.normal(0.0, self.sdterr/10.0, 1000)
+    if X[0] <= 0 or X[3] <=0 or X[6] <=0:
+      return [0, 0.2, 0, 0, 0]
     for i in range(0, NofInt - 1):
       self.sphere1.SetCenter(X[0] + noiseGaussianX[i], X[1] + noiseGaussianY[i], X[2] + noiseGaussianZ[i])
       self.sphere1.Update()
@@ -951,13 +957,14 @@ class Cryo3Probes(ScriptedLoadableModuleLogic):
       Metric[i] = DICE_temp[0] + self.DiceGain * DICE_temp[1]
       PC_vector[i] = DICE_temp[1]
       DSC_vector[i] = DICE_temp[0]
+      HTA_vector[i] = DICE_temp[2]
     count = 0
     for i in range(0, NofInt - 1):
       if PC_vector[i] >= 0.97:
         count = count + 1
     if count == 0:
         count = 10
-    return [count, numpy.mean(Metric), numpy.mean(PC_vector), numpy.mean(DSC_vector)]
+    return [count, numpy.mean(Metric), numpy.mean(PC_vector), numpy.mean(DSC_vector), numpy.mean(HTA_vector)]
 
   def InitDataForPlanning(self,inputVolume2):
     self.sphere1 = vtk.vtkImageEllipsoidSource()
@@ -1182,7 +1189,7 @@ class Cryo3Probes(ScriptedLoadableModuleLogic):
     self.DiceGain = Kd
 
 
-    self.sdterr = 2
+    self.sdterr = 4.0
 
     start_time = time.time()
     self.InitDataForPlanning(inputVolume2)
@@ -1193,12 +1200,39 @@ class Cryo3Probes(ScriptedLoadableModuleLogic):
     RasToIjkMatrix = vtk.vtkMatrix4x4()
     inputVolume2.GetRASToIJKMatrix(RasToIjkMatrix)
 
-    self.optimizationCryo(N,Kd)
+
+    print(self.Probability([161,120,18,168,138,18,178,151,18], 100))
+    print("Pra valer")
+
+    self.sphere1.SetCenter(161, 120, 18)
+    self.sphere1.Update()
+    self.sphere2.SetCenter(168, 137, 18)
+    self.sphere2.Update()
+    self.sphere3.SetCenter(178, 151, 18)
+    self.sphere3.Update()
+    print(self.ComputeDice3IceBall())
+
+    return
+
+    X = self.optimizationCryo(N,Kd)
     elapsed_time = time.time() - start_time
     print(elapsed_time)
 
     savetime[0] = elapsed_time
     saveMetric[0] = self.Metric[0]
+
+
+    self.sphere1.SetCenter(161, 120, X[2])
+    self.sphere1.Update()
+    self.sphere2.SetCenter(168, 135, X[5])
+    self.sphere2.Update()
+    self.sphere3.SetCenter(178, 151, X[8])
+    self.sphere3.Update()
+    DICE_temp = self.ComputeDice3IceBall()
+    print(X)
+    print("clinical Case:")
+    print(DICE_temp)
+    print("===========")
 
     print(self.Metric)
     print(self.FinalProbePlacement1)
