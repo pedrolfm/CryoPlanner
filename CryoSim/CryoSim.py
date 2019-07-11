@@ -449,7 +449,7 @@ class Cryo1Probes(ScriptedLoadableModuleLogic):
     print(saveDSC)
 
     self.affectedAreaModelNode = ModuleLogicMixin.createModelNode("AffectedArea")
-    print("gfg")
+
 
     IceMatrix1 = self.GetIceMAtrixRAS(inputVolume2, self.FinalProbePlacement1)
 
@@ -790,17 +790,6 @@ class Cryo2Probes(ScriptedLoadableModuleLogic):
     self.output = outputLabel
 
 
-    print(self.Probability([151,123,25,146,99,25], 100))
-
-    self.sphere1.SetCenter(151,123,25)
-    self.sphere1.Update()
-    self.sphere2.SetCenter(146,99,25)
-    self.sphere2.Update()
-    print(self.ComputeDice2IceBall())
-
-
-    print("Pra valer")
-    return
     X = self.optimizationCryo(N, Kd)
     elapsed_time = time.time() - start_time
     print(elapsed_time)
@@ -1200,20 +1189,6 @@ class Cryo3Probes(ScriptedLoadableModuleLogic):
     RasToIjkMatrix = vtk.vtkMatrix4x4()
     inputVolume2.GetRASToIJKMatrix(RasToIjkMatrix)
 
-
-    print(self.Probability([161,120,18,168,138,18,178,151,18], 100))
-    print("Pra valer")
-
-    self.sphere1.SetCenter(161, 120, 18)
-    self.sphere1.Update()
-    self.sphere2.SetCenter(168, 137, 18)
-    self.sphere2.Update()
-    self.sphere3.SetCenter(178, 151, 18)
-    self.sphere3.Update()
-    print(self.ComputeDice3IceBall())
-
-    return
-
     X = self.optimizationCryo(N,Kd)
     elapsed_time = time.time() - start_time
     print(elapsed_time)
@@ -1222,17 +1197,17 @@ class Cryo3Probes(ScriptedLoadableModuleLogic):
     saveMetric[0] = self.Metric[0]
 
 
-    self.sphere1.SetCenter(161, 120, X[2])
-    self.sphere1.Update()
-    self.sphere2.SetCenter(168, 135, X[5])
-    self.sphere2.Update()
-    self.sphere3.SetCenter(178, 151, X[8])
-    self.sphere3.Update()
-    DICE_temp = self.ComputeDice3IceBall()
-    print(X)
-    print("clinical Case:")
-    print(DICE_temp)
-    print("===========")
+#    self.sphere1.SetCenter(161, 120, X[2])
+#    self.sphere1.Update()
+#    self.sphere2.SetCenter(168, 135, X[5])
+#    self.sphere2.Update()
+#    self.sphere3.SetCenter(178, 151, X[8])
+#    self.sphere3.Update()
+#    DICE_temp = self.ComputeDice3IceBall()
+#    print(X)
+#    print("clinical Case:")
+#    print(DICE_temp)
+#    print("===========")
 
     print(self.Metric)
     print(self.FinalProbePlacement1)
